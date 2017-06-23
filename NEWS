@@ -1,3 +1,11 @@
+Next release
+============
+
+  * Support for MongoDB 3.6:
+    * New struct mongoc_session_t represents a MongoDB 3.6 session, optionally
+      with retryable writes and/or causally consistent reads enabled.
+
+
 mongo-c-driver 1.8.0
 ====================
 

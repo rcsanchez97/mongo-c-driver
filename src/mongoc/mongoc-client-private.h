@@ -66,6 +66,8 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_CMD_WRITE_CONCERN 5
 /* first version to support collation */
 #define WIRE_VERSION_COLLATION 5
+/* first version to support $clusterTime and causally consistent reads */
+#define WIRE_VERSION_CLUSTER_TIME 6
 
 
 struct _mongoc_client_t {

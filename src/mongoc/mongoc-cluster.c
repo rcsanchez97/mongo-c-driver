@@ -50,6 +50,7 @@
 #include "mongoc-rpc-private.h"
 #include "mongoc-compression-private.h"
 #include "mongoc-cmd-private.h"
+#include "mongoc-session-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "cluster"
@@ -264,13 +265,14 @@ _bson_error_message_printf (bson_error_t *error, const char *format, ...)
          error->message);                                          \
    } while (0)
 
+
 /*
  *--------------------------------------------------------------------------
  *
  * mongoc_cluster_run_command_internal --
  *
- *       Internal function to run a command on a given stream.
- *       @error and @reply are optional out-pointers.
+ *       Internal function to run a command on a given stream, optionally
+ *       with a session. @error and @reply are optional out-pointers.
  *
  * Returns:
  *       true if successful; otherwise false and @error is set.
@@ -1752,7 +1754,10 @@ mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
       scanner_node->has_auth = true;
    }
 
-   return mongoc_server_stream_new (topology->description.type, sd, stream);
+   return mongoc_server_stream_new (topology->description.type,
+                                    sd,
+                                    &topology->description.cluster_time,
+                                    stream);
 }
 
 
@@ -1763,15 +1768,27 @@ _mongoc_cluster_create_server_stream (mongoc_topology_t *topology,
                                       bson_error_t *error /* OUT */)
 {
    mongoc_server_description_t *sd;
+   mongoc_server_stream_t *server_stream = NULL;
 
-   sd = mongoc_topology_server_by_id (topology, server_id, error);
+   /* can't just use mongoc_topology_server_by_id(), since we must hold the
+    * lock while copying topology->description.logical_time below */
+   mongoc_mutex_lock (&topology->mutex);
 
-   if (!sd) {
-      return NULL;
+   sd = mongoc_server_description_new_copy (
+      mongoc_topology_description_server_by_id (
+         &topology->description, server_id, error));
+
+   if (sd) {
+      server_stream =
+         mongoc_server_stream_new (topology->description.type,
+                                   sd,
+                                   &topology->description.cluster_time,
+                                   stream);
    }
 
-   return mongoc_server_stream_new (
-      _mongoc_topology_get_type (topology), sd, stream);
+   mongoc_mutex_unlock (&topology->mutex);
+
+   return server_stream;
 }
 
 

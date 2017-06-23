@@ -1211,6 +1211,7 @@ _mongoc_write_command (mongoc_write_command_t *command,
                        const char *collection,
                        const mongoc_write_concern_t *write_concern,
                        uint32_t offset,
+                       mongoc_session_t *session,
                        mongoc_write_result_t *result,
                        bson_error_t *error)
 {
@@ -1364,6 +1365,7 @@ again:
    } else {
       mongoc_cmd_parts_init (&parts, database, MONGOC_QUERY_NONE, &cmd);
       parts.is_write_command = true;
+      parts.session = session;
       parts.assembled.operation_id = command->operation_id;
       ret = mongoc_cluster_run_command_monitored (
          &client->cluster, &parts, server_stream, &reply, error);
@@ -1404,6 +1406,7 @@ _mongoc_write_command_execute (
    const char *collection,                      /* IN */
    const mongoc_write_concern_t *write_concern, /* IN */
    uint32_t offset,                             /* IN */
+   mongoc_session_t *session,                   /* IN */
    mongoc_write_result_t *result)               /* OUT */
 {
    ENTRY;
@@ -1436,6 +1439,7 @@ _mongoc_write_command_execute (
                              collection,
                              write_concern,
                              offset,
+                             session,
                              result,
                              &result->error);
    } else {

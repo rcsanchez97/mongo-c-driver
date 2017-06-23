@@ -46,6 +46,7 @@ INST_H_FILES = \
 	src/mongoc/mongoc-read-concern.h \
 	src/mongoc/mongoc-read-prefs.h \
 	src/mongoc/mongoc-server-description.h \
+	src/mongoc/mongoc-session.h \
 	src/mongoc/mongoc-socket.h \
 	src/mongoc/mongoc-stream-buffered.h \
 	src/mongoc/mongoc-stream-file.h \
@@ -107,6 +108,7 @@ NOINST_H_FILES = \
 	src/mongoc/mongoc-cyrus-private.h \
 	src/mongoc/mongoc-cluster-sspi-private.h \
 	src/mongoc/mongoc-sasl-private.h \
+	src/mongoc/mongoc-session-private.h \
 	src/mongoc/mongoc-sspi-private.h \
 	src/mongoc/mongoc-scram-private.h \
 	src/mongoc/mongoc-server-description-private.h \
@@ -195,6 +197,7 @@ MONGOC_SOURCES_SHARED += \
 	src/mongoc/mongoc-rpc.c \
 	src/mongoc/mongoc-server-description.c \
 	src/mongoc/mongoc-server-stream.c \
+	src/mongoc/mongoc-session.c \
 	src/mongoc/mongoc-set.c \
 	src/mongoc/mongoc-socket.c \
 	src/mongoc/mongoc-stream.c \

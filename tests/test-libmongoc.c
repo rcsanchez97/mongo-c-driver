@@ -98,6 +98,8 @@ extern void
 test_sdam_monitoring_install (TestSuite *suite);
 extern void
 test_server_selection_install (TestSuite *suite);
+extern void
+test_session_install (TestSuite *suite);
 #if 0
 extern void test_server_selection_errors_install (TestSuite *suite);
 #endif
@@ -996,8 +998,14 @@ call_ismaster_with_host_and_port (char *host, uint16_t port, bson_t *reply)
    test_framework_set_ssl_opts (client);
 #endif
 
+
+
    if (!mongoc_client_command_simple (
-          client, "admin", tmp_bson ("{'isMaster': 1}"), NULL, reply, &error)) {
+       client,
+                                            "admin",
+                                            tmp_bson ("{'isMaster': 1}"),
+                                           NULL, reply,
+                                            &error)) {
       fprintf (stderr, "error calling ismaster: '%s'\n", error.message);
       fprintf (stderr, "URI = %s\n", uri_str);
       abort ();
@@ -2009,6 +2017,7 @@ main (int argc, char *argv[])
 #if 0
    test_server_selection_errors_install (&suite);
 #endif
+   test_session_install (&suite);
    test_set_install (&suite);
    test_stream_install (&suite);
    test_thread_install (&suite);

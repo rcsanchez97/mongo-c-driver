@@ -191,25 +191,60 @@ _cmd_parts_apply_read_preferences_mongos (mongoc_cmd_parts_t *parts)
 }
 
 
+bool
+_cmd_parts_assemble_common (mongoc_cmd_parts_t *parts,
+                            uint32_t server_id,
+                            bson_error_t *error)
+{
+   ENTRY;
+
+   /* must not be assembled already */
+   BSON_ASSERT (!parts->assembled.command);
+   BSON_ASSERT (bson_empty (&parts->assembled_body));
+
+   parts->assembled.name = _mongoc_get_command_name (parts->body);
+   if (!parts->assembled.name) {
+      bson_set_error (error,
+                      MONGOC_ERROR_COMMAND,
+                      MONGOC_ERROR_COMMAND_INVALID_ARG,
+                      "Empty command document");
+      RETURN (false);
+   }
+
+   parts->assembled.query_flags = parts->user_query_flags;
+   parts->assembled.command = parts->body;
+   parts->assembled.server_id = server_id;
+
+   RETURN (true);
+}
+
+
 /*
  *--------------------------------------------------------------------------
  *
  * mongoc_cmd_parts_assemble --
  *
  *       Assemble the command body, options, and read preference into one
- *       command.
+ *       command. Sets @parts->command_ptr and @parts->query_flags.
+ *       Concatenates @parts->body and @parts->command_extra into
+ *       @parts->assembled_body if needed.
+ *
+ * Return:
+ *       True if the options were successfully applied. If any options are
+ *       invalid, returns false and fills out @error. In that case @parts is
+ *       invalid and must not be used.
  *
  * Side effects:
- *       Sets @parts->command_ptr and @parts->query_flags. Concatenates
- *       @parts->body and @parts->command_extra into @parts->cmd if
- *       needed.
+ *       May partly assemble before returning an error.
+ *       mongoc_cmd_parts_cleanup should be called in all cases.
  *
  *--------------------------------------------------------------------------
  */
 
-void
+bool
 mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
-                           const mongoc_server_stream_t *server_stream)
+                           const mongoc_server_stream_t *server_stream,
+                           bson_error_t *error)
 {
    mongoc_server_description_type_t server_type;
 
@@ -218,16 +253,12 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
    BSON_ASSERT (parts);
    BSON_ASSERT (server_stream);
 
+   /* begin with raw flags/cmd as assembled flags/cmd, might change below */
+   if (!_cmd_parts_assemble_common (parts, server_stream->sd->id, error)) {
+      RETURN (false);
+   }
+
    server_type = server_stream->sd->type;
-
-   /* must not be cmd already */
-   BSON_ASSERT (!parts->assembled.command);
-   BSON_ASSERT (bson_empty (&parts->assembled_body));
-
-   /* begin with raw flags/cmd as cmd flags/cmd, might update them below */
-   parts->assembled.command = parts->body;
-   parts->assembled.query_flags = parts->user_query_flags;
-   parts->assembled.server_id = server_stream->sd->id;
 
    if (!parts->is_write_command) {
       switch (server_stream->topology_type) {
@@ -280,10 +311,8 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
    if (!bson_empty (&server_stream->cluster_time) &&
        server_stream->sd->type == MONGOC_SERVER_MONGOS &&
        server_stream->sd->max_wire_version >= WIRE_VERSION_CLUSTER_TIME) {
-      bson_append_document (&parts->extra,
-                            "$clusterTime",
-                            12,
-                            &server_stream->cluster_time);
+      bson_append_document (
+         &parts->extra, "$clusterTime", 12, &server_stream->cluster_time);
    }
 
    if (!bson_empty (&parts->extra)) {
@@ -296,7 +325,7 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
       bson_concat (&parts->assembled_body, &parts->extra);
    }
 
-   EXIT;
+   RETURN (true);
 }
 
 /*
@@ -307,20 +336,29 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
  *       Sets @parts->cmd.command and @parts->query_flags, without applying
  *       any server-specific logic.
  *
+ * Return:
+ *       True if the options were successfully applied. If any options are
+ *       invalid, returns false and fills out @error. In that case @parts is
+ *       invalid and must not be used.
+ *
+ * Side effects:
+ *       May partly assemble before returning an error.
+ *       mongoc_cmd_parts_cleanup should be called in all cases.
+ *
  *--------------------------------------------------------------------------
  */
 
-void
-mongoc_cmd_parts_assemble_simple (mongoc_cmd_parts_t *parts, uint32_t server_id)
+bool
+mongoc_cmd_parts_assemble_simple (mongoc_cmd_parts_t *parts,
+                                  uint32_t server_id,
+                                  bson_error_t *error)
 {
-   /* must not be cmd already, must have no options set */
-   BSON_ASSERT (!parts->assembled.command);
-   BSON_ASSERT (bson_empty (&parts->assembled_body));
-   BSON_ASSERT (bson_empty (&parts->extra));
+   ENTRY;
 
-   parts->assembled.query_flags = parts->user_query_flags;
-   parts->assembled.command = parts->body;
-   parts->assembled.server_id = server_id;
+   BSON_ASSERT (parts);
+   BSON_ASSERT (bson_empty (&parts->extra));  /* must have no options set */
+
+   RETURN (_cmd_parts_assemble_common (parts, server_id, error));
 }
 
 

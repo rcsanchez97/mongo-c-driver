@@ -69,7 +69,7 @@
       }                                                       \
    } while (0)
 
-#define IS_NOT_COMMAND(name) (!!strcasecmp (command_name, name))
+#define IS_NOT_COMMAND(name_) (!!strcasecmp (cmd->name, name_))
 
 static mongoc_server_stream_t *
 mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
@@ -260,7 +260,7 @@ _bson_error_message_printf (bson_error_t *error, const char *format, ...)
       _bson_error_message_printf (                                 \
          error,                                                    \
          "Failed to send \"%s\" command with database \"%s\": %s", \
-         command_name,                                             \
+         cmd->name,                                                \
          cmd->db_name,                                             \
          error->message);                                          \
    } while (0)
@@ -296,7 +296,6 @@ mongoc_cluster_run_command_internal (mongoc_cluster_t *cluster,
                                      bson_error_t *error)
 {
    int64_t started;
-   const char *command_name;
    mongoc_apm_callbacks_t *callbacks;
    const size_t reply_header_size = sizeof (mongoc_rpc_reply_header_t);
    uint8_t reply_header_buf[sizeof (mongoc_rpc_reply_header_t)];
@@ -342,18 +341,6 @@ mongoc_cluster_run_command_internal (mongoc_cluster_t *cluster,
     * prepare the request
     */
 
-   command_name = _mongoc_get_command_name (cmd->command);
-   if (!command_name) {
-      bson_set_error (error,
-                      MONGOC_ERROR_COMMAND,
-                      MONGOC_ERROR_COMMAND_INVALID_ARG,
-                      "Empty command document");
-
-      /* haven't fired command-started event, so don't fire command-failed */
-      monitored = false;
-      GOTO (done);
-   }
-
    _mongoc_array_clear (&cluster->iov);
 
    bson_snprintf (cmd_ns, sizeof cmd_ns, "%s.$cmd", cmd->db_name);
@@ -384,7 +371,7 @@ mongoc_cluster_run_command_internal (mongoc_cluster_t *cluster,
       mongoc_apm_command_started_init (&started_event,
                                        cmd->command,
                                        cmd->db_name,
-                                       command_name,
+                                       cmd->name,
                                        request_id,
                                        cmd->operation_id,
                                        host,
@@ -417,7 +404,7 @@ mongoc_cluster_run_command_internal (mongoc_cluster_t *cluster,
       _bson_error_message_printf (
          error,
          "Failed to send \"%s\" command with database \"%s\": %s",
-         command_name,
+         cmd->name,
          cmd->db_name,
          error->message);
 
@@ -519,7 +506,7 @@ mongoc_cluster_run_command_internal (mongoc_cluster_t *cluster,
       mongoc_apm_command_succeeded_init (&succeeded_event,
                                          bson_get_monotonic_time () - started,
                                          reply_ptr,
-                                         command_name,
+                                         cmd->name,
                                          request_id,
                                          cmd->operation_id,
                                          host,
@@ -542,7 +529,7 @@ done:
    if (!ret && monitored && callbacks->failed) {
       mongoc_apm_command_failed_init (&failed_event,
                                       bson_get_monotonic_time () - started,
-                                      command_name,
+                                      cmd->name,
                                       error,
                                       request_id,
                                       cmd->operation_id,
@@ -596,7 +583,9 @@ mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,
       0;
 #endif
 
-   mongoc_cmd_parts_assemble (parts, server_stream);
+   if (!mongoc_cmd_parts_assemble (parts, server_stream, error)) {
+      return false;
+   }
 
    return mongoc_cluster_run_command_internal (cluster,
                                                &parts->assembled,
@@ -635,7 +624,9 @@ mongoc_cluster_run_command_private (mongoc_cluster_t *cluster,
                                     bson_t *reply,
                                     bson_error_t *error)
 {
-   mongoc_cmd_parts_assemble_simple (parts, server_id);
+   if (!mongoc_cmd_parts_assemble_simple (parts, server_id, error)) {
+      return false;
+   }
 
    /* monitored = false */
    return mongoc_cluster_run_command_internal (cluster,

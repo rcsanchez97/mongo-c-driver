@@ -39,6 +39,7 @@ BSON_BEGIN_DECLS
 
 typedef struct _mongoc_cmd_t {
    const char *db_name;
+   const char *name;
    mongoc_query_flags_t query_flags;
    const bson_t *command;
    uint32_t server_id;
@@ -71,12 +72,15 @@ mongoc_cmd_parts_append_opts (mongoc_cmd_parts_t *parts,
                               int max_wire_version,
                               bson_error_t *error);
 
-void
+bool
 mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
-                           const mongoc_server_stream_t *server_stream);
+                           const mongoc_server_stream_t *server_stream,
+                           bson_error_t *error);
 
-void
-mongoc_cmd_parts_assemble_simple (mongoc_cmd_parts_t *op, uint32_t server_id);
+bool
+mongoc_cmd_parts_assemble_simple (mongoc_cmd_parts_t *op,
+                                  uint32_t server_id,
+                                  bson_error_t *error);
 
 void
 mongoc_cmd_parts_cleanup (mongoc_cmd_parts_t *op);

@@ -475,7 +475,9 @@ mongoc_collection_aggregate (mongoc_collection_t *collection,       /* IN */
       }
    }
 
-   mongoc_cmd_parts_assemble (&parts, server_stream);
+   if (!mongoc_cmd_parts_assemble (&parts, server_stream, &cursor->error)) {
+      GOTO (done);
+   }
 
    if (use_cursor) {
       _mongoc_cursor_cursorid_init (cursor, parts.assembled.command);

@@ -501,6 +501,8 @@ mongoc_cluster_run_command_internal (mongoc_cluster_t *cluster,
       GOTO (done);
    }
 
+   _mongoc_topology_update_cluster_time (cluster->client->topology, reply_ptr);
+
    ret = true;
    if (monitored && callbacks->succeeded) {
       mongoc_apm_command_succeeded_init (&succeeded_event,

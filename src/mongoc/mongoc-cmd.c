@@ -71,7 +71,7 @@ mongoc_cmd_parts_append_opts (mongoc_cmd_parts_t *parts,
 {
    ENTRY;
 
-   /* not yet cmd */
+   /* not yet assembled */
    BSON_ASSERT (!parts->assembled.command);
 
    while (bson_iter_next (iter)) {

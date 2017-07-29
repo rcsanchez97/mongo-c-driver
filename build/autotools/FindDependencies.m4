@@ -33,4 +33,91 @@ AC_CHECK_TYPE([socklen_t],
               [AC_SUBST(MONGOC_HAVE_SOCKLEN, 0)],
               [#include <sys/socket.h>])
 
+# Thread-safe DNS query function for _mongoc_client_get_srv.
+# Could be a macro, not a function, so check with AC_TRY_LINK.
+AC_MSG_CHECKING([for res_nquery])
+save_LIBS="$LIBS"
+LIBS="$LIBS -lresolv"
+AC_TRY_LINK([
+   #include <sys/types.h>
+   #include <netinet/in.h>
+   #include <arpa/nameser.h>
+   #include <resolv.h>
+],[
+   int len;
+   unsigned char reply[1024];
+   res_state statep;
+   len = res_nquery(
+      statep, "example.com", ns_c_in, ns_t_srv, reply, sizeof(reply));
+],[
+   AC_MSG_RESULT([yes])
+   AC_SUBST(MONGOC_HAVE_RES_QUERY, 0)
+   AC_SUBST(MONGOC_HAVE_RES_NQUERY, 1)
+   AC_SUBST(RESOLV_LIB, -lresolv)
+
+   # We have res_nquery. Call res_ndestroy (BSD/Mac) or res_nclose (Linux)?
+   AC_MSG_CHECKING([for res_ndestroy])
+   AC_TRY_LINK([
+      #include <sys/types.h>
+      #include <netinet/in.h>
+      #include <arpa/nameser.h>
+      #include <resolv.h>
+   ],[
+      res_state statep;
+      res_ndestroy(statep);
+   ], [
+      AC_MSG_RESULT([yes])
+      AC_SUBST(MONGOC_HAVE_RES_NDESTROY, 1)
+      AC_SUBST(MONGOC_HAVE_RES_NCLOSE, 0)
+   ], [
+      AC_MSG_RESULT([no])
+      AC_SUBST(MONGOC_HAVE_RES_NDESTROY, 0)
+
+      AC_MSG_CHECKING([for res_nclose])
+      AC_TRY_LINK([
+         #include <sys/types.h>
+         #include <netinet/in.h>
+         #include <arpa/nameser.h>
+         #include <resolv.h>
+      ],[
+         res_state statep;
+         res_nclose(statep);
+      ], [
+         AC_MSG_RESULT([yes])
+         AC_SUBST(MONGOC_HAVE_RES_NCLOSE, 1)
+      ], [
+         AC_MSG_RESULT([no])
+         AC_SUBST(MONGOC_HAVE_RES_NCLOSE, 0)
+      ])
+   ])
+],[
+   AC_SUBST(MONGOC_HAVE_RES_NQUERY, 0)
+   AC_SUBST(MONGOC_HAVE_RES_NDESTROY, 0)
+   AC_SUBST(MONGOC_HAVE_RES_NCLOSE, 0)
+
+   AC_MSG_RESULT([no])
+   AC_MSG_CHECKING([for res_query])
+
+   # Thread-unsafe function.
+   AC_TRY_LINK([
+      #include <sys/types.h>
+      #include <netinet/in.h>
+      #include <arpa/nameser.h>
+      #include <resolv.h>
+   ],[
+      int len;
+      unsigned char reply[1024];
+      len = res_query("example.com", ns_c_in, ns_t_srv, reply, sizeof(reply));
+   ], [
+      AC_MSG_RESULT([yes])
+      AC_SUBST(MONGOC_HAVE_RES_QUERY, 1)
+      AC_SUBST(RESOLV_LIB, -lresolv)
+   ], [
+      AC_MSG_RESULT([no])
+      AC_SUBST(MONGOC_HAVE_RES_QUERY, 0)
+   ])
+])
+
+LIBS="$save_LIBS"
+
 AX_PTHREAD

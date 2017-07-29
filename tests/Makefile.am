@@ -38,6 +38,7 @@ TEST_LIBS = \
 	libmongoc-priv.la \
 	$(PTHREAD_LIBS) \
 	$(SHM_LIB) \
+	$(RESOLV_LIB) \
 	$(SASL_LIBS) \
 	$(SNAPPY_LIBS) \
 	$(ZLIB_LIBS) \

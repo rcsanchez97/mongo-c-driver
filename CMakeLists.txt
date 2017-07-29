@@ -262,6 +262,8 @@ else()
    set (MONGOC_SOCKET_ARG3 "int")
 endif()
 
+include (FindResQuery)
+
 function (mongoc_get_accept_args ARG2 ARG3)
    SET (VAR 0)
    foreach (ARG2_VAL "struct sockaddr" "void")
@@ -610,7 +612,7 @@ if(CMAKE_USE_PTHREADS_INIT)
    set(THREAD_LIB ${CMAKE_THREAD_LIBS_INIT})
 endif()
 
-set (LIBS ${SASL_LIBS} ${SSL_LIBS} ${SHM_LIB} Threads::Threads)
+set (LIBS ${SASL_LIBS} ${SSL_LIBS} ${SHM_LIB} ${RESOLV_LIB} Threads::Threads)
 if(WIN32)
    set (LIBS ${LIBS} ws2_32)
 endif()
@@ -657,9 +659,12 @@ function(mongoc_add_test test use_shared)
          target_link_libraries(${test} mongoc_static)
          target_include_directories(${test} PRIVATE ${BSON_STATIC_INCLUDE_DIRS} ${MONGOC_INTERNAL_INCLUDE_DIRS})
       endif()
-      if(WIN32)
+      target_link_libraries(${test} ${RESOLV_LIB})
+      if (WIN32)
          target_link_libraries(${test} shlwapi)
-      endif()
+      else ()
+         target_link_libraries(${test})
+      endif ()
    endif()
 endfunction()
 
@@ -837,8 +842,12 @@ set(VERSION "${MONGOC_VERSION}")
 set(prefix "${CMAKE_INSTALL_PREFIX}")
 set(libdir "\${prefix}/lib")
 
-foreach(FLAG ${SASL_LIBS} ${SSL_LIBS} ${SHM_LIB} ${THREAD_LIB} ${ZLIB_LIBS} ${SNAPPY_LIBS})
-   if ( IS_ABSOLUTE "${FLAG}" )
+foreach(
+      FLAG
+      ${SASL_LIBS} ${SSL_LIBS} ${SHM_LIB} ${RESOLV_LIB} ${THREAD_LIB}
+      ${ZLIB_LIBS} ${SNAPPY_LIBS})
+
+   if (IS_ABSOLUTE "${FLAG}" )
       get_filename_component(FLAG_DIR "${FLAG}" DIRECTORY)
       get_filename_component(FLAG_FILE "${FLAG}" NAME_WE)
       STRING(REGEX REPLACE "^lib" "" FLAG_FILE "${FLAG_FILE}")

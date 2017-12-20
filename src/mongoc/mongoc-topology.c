@@ -931,6 +931,32 @@ _mongoc_topology_update_from_handshake (mongoc_topology_t *topology,
 /*
  *--------------------------------------------------------------------------
  *
+ * _mongoc_topology_update_last_used --
+ *
+ *       Internal function. Track when the socket to a particular server
+ *       was last used. This is required for mongoc_cluster_check_interval
+ *       to know when a socket has been idle.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+_mongoc_topology_update_last_used (mongoc_topology_t *topology,
+                                   uint32_t server_id)
+{
+   mongoc_topology_scanner_node_t *node;
+
+   if (topology->single_threaded) {
+      node = mongoc_topology_scanner_get_node (topology->scanner, server_id);
+      if (node) {
+         node->last_used = bson_get_monotonic_time ();
+      }
+   }
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
  * mongoc_topology_server_timestamp --
  *
  *      Return the topology's scanner's timestamp for the given server,
